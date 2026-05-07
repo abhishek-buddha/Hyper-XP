@@ -105,6 +105,8 @@ def test_uses_gpt45_preview_model():
 
 
 def test_row_validation_present_in_row():
+    # Contract test: verifies extract_generic does not strip _row_validation keys
+    # that the LLM (mocked here) returns. Does not test validation logic itself.
     result = extract_generic([b"fake_png"], client=_mock_client(json.dumps(_MOCK_RESULT)))
     row = result["sheets"][0]["rows"][0]
     assert "_row_validation" in row
