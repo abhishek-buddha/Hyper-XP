@@ -181,3 +181,5 @@ def test_save_with_upload_id_updates_record():
     })
     assert save_resp.status_code == 200
     assert "excel_url" in save_resp.json()
+    detail = client.get(f"/history/{upload_id}")
+    assert detail.json()["excel_url"] == save_resp.json()["excel_url"]

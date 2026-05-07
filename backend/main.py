@@ -105,9 +105,13 @@ async def extract(file: UploadFile = File(...), db: Session = Depends(get_db)):
         sheets_json=json.dumps(sheets),
         validation_summary=json.dumps(validation_summary),
     )
-    db.add(upload)
-    db.commit()
-    db.refresh(upload)
+    try:
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+    except Exception as exc:
+        (_OUTPUT_DIR / filename).unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}") from exc
 
     return {
         "status": "complete",
@@ -185,7 +189,7 @@ def history_detail(upload_id: int, db: Session = Depends(get_db)):
         "batch_no": row.batch_no,
         "excel_url": row.excel_url,
         "sheets_json": row.sheets_json,
-        "validation_summary": row.validation_summary,
+        "validation_summary": json.loads(row.validation_summary) if row.validation_summary else None,
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
