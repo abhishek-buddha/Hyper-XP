@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function timeAgo(dateStr) {
   if (!dateStr) return ''
@@ -204,7 +204,7 @@ export default function App() {
   const [history, setHistory] = useState([])
   const [activeHistoryId, setActiveHistoryId] = useState(null)
   const [uploadId, setUploadId] = useState(null)
-  const [showUpload, setShowUpload] = useState(false)
+  const [showUpload, setShowUpload] = useState(true)
 
   const loadHistory = useCallback(async () => {
     try {
@@ -214,10 +214,6 @@ export default function App() {
   }, [])
 
   useEffect(() => { loadHistory() }, [loadHistory])
-
-  useEffect(() => {
-    if (history.length === 0 && status === 'idle') setShowUpload(true)
-  }, [history, status])
 
   const handleFileSelect = useCallback(f => {
     setFile(f)
@@ -314,7 +310,8 @@ export default function App() {
 
   const handleDeleteHistory = useCallback(async id => {
     try {
-      await fetch(`${API}/history/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API}/history/${id}`, { method: 'DELETE' })
+      if (!res.ok) return
       setHistory(prev => prev.filter(e => e.id !== id))
       if (activeHistoryId === id) {
         setResult(null)
@@ -410,7 +407,9 @@ export default function App() {
           </header>
 
           <div className="content">
-            {mainContent()}
+            <div key={showUpload ? 'upload' : String(activeHistoryId ?? 'data')}>
+              {mainContent()}
+            </div>
             {error && <p className="error-msg">{error}</p>}
             {saveError && <p className="error-msg">{saveError}</p>}
           </div>
