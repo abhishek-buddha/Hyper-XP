@@ -212,7 +212,7 @@ function UploadZone({ onFileAndExtract, onLoadDemo }) {
   )
 }
 
-function DataPane({ result, onCellChange, onSave, saving }) {
+function DataPane({ result, onCellChange, onSave, saving, onReport }) {
   const [activeSheet, setActiveSheet] = useState(0)
 
   useEffect(() => { setActiveSheet(0) }, [result])
@@ -245,7 +245,7 @@ function DataPane({ result, onCellChange, onSave, saving }) {
         const naRows = totalRows - (summary?.total || 0)
         return (
           <div className="val-bar">
-            <span className="val-label">Validation</span>
+            <span className="val-label">QC Completed</span>
             <span className="val-divider" />
             <span className="val-total">{totalRows} rows</span>
             <span className="val-divider" />
@@ -262,6 +262,7 @@ function DataPane({ result, onCellChange, onSave, saving }) {
               <span className="val-na"><span className="val-dot na-dot" />{naRows} n/a</span>
             )}
             <span className="pane-save-wrap">
+              <button className="btn-report" onClick={onReport}>↓ Report</button>
               <button className="btn-save" onClick={onSave} disabled={saving}>
                 {saving ? 'Saving…' : '↓ Excel'}
               </button>
@@ -392,6 +393,30 @@ export default function App() {
     }))
   }, [])
 
+  const handleReport = useCallback(async () => {
+    if (!result) return
+    try {
+      const res = await fetch(`${API}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_type: result.document_type,
+          sheets: result.sheets,
+          validation_summary: result.validation_summary,
+        }),
+      })
+      if (!res.ok) throw new Error('Report generation failed')
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'qc-report.xlsx'
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch (e) {
+      console.error('Report error:', e)
+    }
+  }, [result])
+
   const handleSave = useCallback(async () => {
     if (!result) return
     setSaving(true)
@@ -505,6 +530,7 @@ export default function App() {
               onCellChange={handleCellChange}
               onSave={handleSave}
               saving={saving}
+              onReport={handleReport}
             />
           </div>
         </div>
@@ -948,7 +974,21 @@ const CSS = `
   .val-warn { color: var(--warn); display: flex; align-items: center; }
   .val-na { color: var(--ink-3); display: flex; align-items: center; font-size: 12px; }
   .na-dot { background: var(--ink-3); }
-  .pane-save-wrap { margin-left: auto; }
+  .pane-save-wrap { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  .btn-report {
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--ink-3);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    white-space: nowrap;
+  }
+  .btn-report:hover { border-color: var(--ink-2); color: var(--ink-1); background: rgba(15,30,70,0.04); }
 
   .sheet-tabs {
     display: flex; padding: 0 16px;

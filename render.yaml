@@ -3,22 +3,26 @@ services:
   - type: web
     name: hyperxp-backend
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"          # pin to avoid SQLAlchemy breakage on Python 3.14+
       - key: OPENAI_API_KEY
-        sync: false          # set this manually in the Render dashboard
+        sync: false              # set manually in the Render dashboard
       - key: ALLOWED_ORIGINS
-        sync: false          # set to your frontend URL after it's deployed
+        sync: false              # set to your frontend URL after it is deployed
 
   # ── Frontend (React/Vite static site) ─────────────────────────────────────
   - type: web
     name: hyperxp-frontend
     runtime: static
+    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        sync: false          # set to your backend URL after it's deployed
+        sync: false              # set to your backend URL after it is deployed

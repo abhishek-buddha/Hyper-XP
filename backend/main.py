@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from database import Upload, get_db, init_db
-from excel_gen import generate_workbook
+from excel_gen import generate_report, generate_workbook
 from extractor import extract_generic
 from pdf_converter import page_count, pdf_to_images
 
@@ -135,6 +135,22 @@ async def extract(file: UploadFile = File(...), db: Session = Depends(get_db)):
         "sheets": sheets,
         "validation_summary": validation_summary,
     }
+
+
+@app.post("/report")
+async def report(body: dict = Body(...)):
+    sheets = body.get("sheets", [])
+    document_type = body.get("document_type", "")
+    validation_summary = body.get("validation_summary", {})
+    try:
+        xlsx_bytes = generate_report(sheets, document_type, validation_summary)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Report generation failed: {exc}") from exc
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="qc-report.xlsx"'},
+    )
 
 
 @app.post("/save")
