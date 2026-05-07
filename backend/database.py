@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session
@@ -22,7 +22,7 @@ class Upload(Base):
     excel_url          = Column(String, nullable=False)
     sheets_json        = Column(Text, nullable=False)
     validation_summary = Column(Text, nullable=False, default="{}")
-    created_at         = Column(DateTime, default=datetime.utcnow)
+    created_at         = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def init_db(bind=None) -> None:
