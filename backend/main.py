@@ -2,6 +2,7 @@ import json
 import os
 import re
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,7 +18,14 @@ from pdf_converter import pdf_to_images
 
 load_dotenv()
 
-app = FastAPI(title="HyperXP Document Extraction")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="HyperXP Document Extraction", lifespan=lifespan)
 
 _ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")]
 
@@ -30,11 +38,6 @@ app.add_middleware(
 
 _OUTPUT_DIR = Path("outputs")
 _OUTPUT_DIR.mkdir(exist_ok=True)
-
-
-@app.on_event("startup")
-def startup():
-    init_db()
 
 
 def _make_filename(document_type: str) -> str:
@@ -188,7 +191,7 @@ def history_detail(upload_id: int, db: Session = Depends(get_db)):
         "document_type": row.document_type,
         "batch_no": row.batch_no,
         "excel_url": row.excel_url,
-        "sheets_json": row.sheets_json,
+        "sheets": json.loads(row.sheets_json),
         "validation_summary": json.loads(row.validation_summary) if row.validation_summary else None,
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }

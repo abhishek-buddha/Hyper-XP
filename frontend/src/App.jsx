@@ -292,7 +292,7 @@ export default function App() {
       const res = await fetch(`${API}/history/${id}`)
       if (!res.ok) return
       const entry = await res.json()
-      const sheets = JSON.parse(entry.sheets_json)
+      const sheets = entry.sheets
       setResult({
         document_type: entry.document_type,
         sheets,

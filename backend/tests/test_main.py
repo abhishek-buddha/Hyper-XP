@@ -1,4 +1,3 @@
-import json
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from main import app
@@ -15,6 +14,7 @@ _MOCK_EXTRACT_RESULT = {
                 {
                     "S.No":          {"value": "1",     "confidence": "high"},
                     "Material Name": {"value": "ETC-3", "confidence": "high"},
+                    "_row_validation": {"status": "na", "reason": "No verifiable requirement"},
                 }
             ],
         }
@@ -148,9 +148,9 @@ def test_history_detail_returns_sheets_json():
     response = client.get(f"/history/{upload_id}")
     assert response.status_code == 200
     data = response.json()
-    assert "sheets_json" in data
-    sheets = json.loads(data["sheets_json"])
-    assert len(sheets) == 1
+    assert "sheets" in data
+    assert isinstance(data["sheets"], list)
+    assert len(data["sheets"]) == 1
 
 
 def test_history_delete_removes_record():
