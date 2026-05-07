@@ -14,6 +14,7 @@ _MOCK_RESULT = {
                     "S.No":          {"value": "1",     "confidence": "high"},
                     "Material Name": {"value": "ETC-3", "confidence": "high"},
                     "UOM":           {"value": "Kg",    "confidence": "low"},
+                    "_row_validation": {"status": "na", "reason": "No verifiable requirement"},
                 }
             ],
         }
@@ -94,3 +95,17 @@ def test_raises_if_sheets_missing():
 def test_raises_on_empty_images():
     with pytest.raises(ValueError, match="non-empty"):
         extract_generic([], client=_mock_client(json.dumps(_MOCK_RESULT)))
+
+
+def test_uses_gpt45_preview_model():
+    client = _mock_client(json.dumps(_MOCK_RESULT))
+    extract_generic([b"fake_png"], client=client)
+    call_kwargs = client.chat.completions.create.call_args
+    assert call_kwargs.kwargs["model"] == "gpt-4.5-preview"
+
+
+def test_row_validation_present_in_row():
+    result = extract_generic([b"fake_png"], client=_mock_client(json.dumps(_MOCK_RESULT)))
+    row = result["sheets"][0]["rows"][0]
+    assert "_row_validation" in row
+    assert row["_row_validation"]["status"] in ("pass", "fail", "warning", "na")

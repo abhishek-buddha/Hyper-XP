@@ -17,6 +17,20 @@ Rules:
 - Create one sheet entry per distinct table found
 - Name sheets descriptively based on what the table contains
 
+Validation rules:
+- For each row, compare the Operation text requirements against the Remarks column.
+- Set _row_validation.status to:
+  - "fail" if: a numeric value in Remarks is outside a range specified in Operation,
+    a limit (NMT/NLT) is breached, or a conditional gate ("if sample does not comply,
+    repeat from Op.X") was not followed.
+  - "warning" if: a value is within 5% of a limit, a required field is blank,
+    or the operation requirement is only partially verifiable.
+  - "pass" if: Remarks demonstrably satisfies the Operation requirement.
+  - "na" if: the Operation contains no verifiable numeric or conditional requirement,
+    the sheet has no Operation/Remarks relationship, or no Operation column exists.
+- Always include a brief reason string.
+- If no Operation or Remarks columns exist, set status "na" for all rows.
+
 Return ONLY valid JSON matching the schema below. No markdown fences, no explanations."""
 
 _SCHEMA = """{
@@ -28,7 +42,8 @@ _SCHEMA = """{
       "rows": [
         {
           "<col1>": { "value": "<string|null>", "confidence": "<high|low>" },
-          "<col2>": { "value": "<string|null>", "confidence": "<high|low>" }
+          "<col2>": { "value": "<string|null>", "confidence": "<high|low>" },
+          "_row_validation": { "status": "<pass|fail|warning|na>", "reason": "<string>" }
         }
       ]
     }
@@ -58,7 +73,7 @@ def _call_api(images: List[bytes], client: OpenAI) -> dict:
             "image_url": {"url": f"data:image/png;base64,{_encode(png)}", "detail": "high"},
         })
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4.5-preview",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": content},
@@ -81,8 +96,8 @@ def extract_generic(images: List[bytes], client: Optional[OpenAI] = None) -> dic
     try:
         return _call_api(images, client)
     except (json.JSONDecodeError, KeyError, IndexError, AttributeError) as e:
-        logging.warning("GPT-4o first attempt failed (%s), retrying…", e)
+        logging.warning("gpt-4.5-preview first attempt failed (%s), retrying…", e)
     try:
         return _call_api(images, client)
     except (json.JSONDecodeError, KeyError, IndexError, AttributeError) as e:
-        raise ValueError(f"GPT-4o returned invalid JSON after retry: {e}") from e
+        raise ValueError(f"gpt-4.5-preview returned invalid JSON after retry: {e}") from e
