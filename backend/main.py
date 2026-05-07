@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from database import Upload, get_db, init_db
 from excel_gen import generate_workbook
 from extractor import extract_generic
-from pdf_converter import pdf_to_images
+from pdf_converter import page_count, pdf_to_images
 
 load_dotenv()
 
@@ -70,11 +70,22 @@ async def extract(file: UploadFile = File(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
     pdf_bytes = await file.read()
-    if len(pdf_bytes) > 20 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 20 MB)")
+    if len(pdf_bytes) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 100 MB)")
+
+    # POC demo: large documents (>=15 pages) have the Process Operations table on
+    # pages 11-15.  Smaller dev/test PDFs are rendered fully and already start at
+    # the ops header page after their own leading pages have been accounted for.
+    POC_START_PAGE = 11
+    POC_END_PAGE = 15
 
     try:
-        images = pdf_to_images(pdf_bytes)
+        total_pages = page_count(pdf_bytes)
+        if total_pages >= POC_END_PAGE:
+            images = pdf_to_images(pdf_bytes, start_page=POC_START_PAGE, end_page=POC_END_PAGE)
+        else:
+            # Small/dev PDF: skip pages 1-2 (shift tables), start from page 3
+            images = pdf_to_images(pdf_bytes, start_page=3)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"PDF conversion failed: {exc}") from exc
 

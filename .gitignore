@@ -2,6 +2,10 @@
 __pycache__/
 *.pyc
 backend/outputs/
+backend/*.db
 node_modules/
 dist/
 .superpowers/
+*.pdf
+*.png
+.claude/

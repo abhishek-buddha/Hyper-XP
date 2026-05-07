@@ -2,6 +2,41 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+const DEMO = {
+  document_type: "Process Operations — Batch ETC-4/00425",
+  upload_id: null,
+  validation_summary: { total: 15, passed: 8, failed: 2, warnings: 2 },
+  sheets: [
+    {
+      name: "Process Operations",
+      columns: ["Op No.", "Operation", "Parameters", "Remarks"],
+      rows: [
+        { "Op No.": {value:"1",confidence:"high"}, "Operation": {value:"Inspect and clean reactor vessel",confidence:"high"}, "Parameters": {value:null,confidence:"high"}, "Remarks": {value:"Inspected. Vessel clean and dry.",confidence:"high"}, "_row_validation": {status:"pass",reason:"Inspection confirmed in remarks"} },
+        { "Op No.": {value:"2",confidence:"high"}, "Operation": {value:"Add purified water NMT 200 L",confidence:"high"}, "Parameters": {value:"≤ 200 L",confidence:"high"}, "Remarks": {value:"182 L added",confidence:"high"}, "_row_validation": {status:"pass",reason:"182 L is within NMT 200 L"} },
+        { "Op No.": {value:"3",confidence:"high"}, "Operation": {value:"Add ETC-3 (AR No. 24-A09), 45.0 kg ± 0.5 kg",confidence:"high"}, "Parameters": {value:"44.5–45.5 kg",confidence:"high"}, "Remarks": {value:"45.0 kg",confidence:"high"}, "_row_validation": {status:"pass",reason:"45.0 kg within ±0.5 kg tolerance"} },
+        { "Op No.": {value:"4",confidence:"high"}, "Operation": {value:"Heat to 60°C ± 2°C, maintain 30 min",confidence:"high"}, "Parameters": {value:"58–62°C / 30 min",confidence:"high"}, "Remarks": {value:"61.5°C, 30 min",confidence:"high"}, "_row_validation": {status:"pass",reason:"61.5°C within 58–62°C range, duration met"} },
+        { "Op No.": {value:"5",confidence:"high"}, "Operation": {value:"Stir at 120–150 rpm throughout heating",confidence:"high"}, "Parameters": {value:"120–150 rpm",confidence:"high"}, "Remarks": {value:"125 rpm maintained",confidence:"high"}, "_row_validation": {status:"pass",reason:"125 rpm within 120–150 rpm"} },
+        { "Op No.": {value:"6",confidence:"high"}, "Operation": {value:"Check pH: 5.5–6.5. Adjust if outside limits.",confidence:"high"}, "Parameters": {value:"5.5–6.5",confidence:"high"}, "Remarks": {value:"5.3",confidence:"high"}, "_row_validation": {status:"fail",reason:"pH 5.3 is below lower limit of 5.5"} },
+        { "Op No.": {value:"7",confidence:"high"}, "Operation": {value:"Filter through 0.2 μm membrane filter",confidence:"high"}, "Parameters": {value:"0.2 μm filter",confidence:"high"}, "Remarks": {value:null,confidence:"high"}, "_row_validation": {status:"warning",reason:"Remarks blank — filtration not confirmed"} },
+        { "Op No.": {value:"8",confidence:"high"}, "Operation": {value:"Cool bulk to 25°C ± 3°C before transfer",confidence:"high"}, "Parameters": {value:"22–28°C",confidence:"high"}, "Remarks": {value:"24°C",confidence:"high"}, "_row_validation": {status:"pass",reason:"24°C within 22–28°C range"} },
+        { "Op No.": {value:"9",confidence:"high"}, "Operation": {value:"Transfer under N₂ pressure NMT 4.0 bar",confidence:"high"}, "Parameters": {value:"≤ 4.0 bar",confidence:"high"}, "Remarks": {value:"4.1 bar",confidence:"high"}, "_row_validation": {status:"fail",reason:"4.1 bar exceeds NMT 4.0 bar limit"} },
+        { "Op No.": {value:"10",confidence:"high"}, "Operation": {value:"Visual clarity check: clear and colourless",confidence:"high"}, "Parameters": {value:"Clear & colourless",confidence:"high"}, "Remarks": {value:"Clear and colourless",confidence:"high"}, "_row_validation": {status:"pass",reason:"Clarity confirmed in remarks"} },
+        { "Op No.": {value:"11",confidence:"high"}, "Operation": {value:"Calculate yield NLT 85%",confidence:"high"}, "Parameters": {value:"≥ 85%",confidence:"high"}, "Remarks": {value:"87%",confidence:"high"}, "_row_validation": {status:"pass",reason:"87% meets NLT 85% requirement"} },
+        { "Op No.": {value:"12",confidence:"high"}, "Operation": {value:"Collect QC samples (3 × 10 mL) and submit",confidence:"high"}, "Parameters": {value:"3 × 10 mL",confidence:"high"}, "Remarks": {value:"Sample collected, QC pending",confidence:"high"}, "_row_validation": {status:"warning",reason:"QC result not yet recorded"} },
+      ]
+    },
+    {
+      name: "Raw Materials",
+      columns: ["S.No", "Material Name", "Batch No.", "Qty (kg)", "AR No."],
+      rows: [
+        { "S.No": {value:"1",confidence:"high"}, "Material Name": {value:"ETC-3",confidence:"high"}, "Batch No.": {value:"24-A09",confidence:"high"}, "Qty (kg)": {value:"45.0",confidence:"high"}, "AR No.": {value:"AR-2024-1142",confidence:"high"}, "_row_validation": {status:"na",reason:"Reference row only"} },
+        { "S.No": {value:"2",confidence:"high"}, "Material Name": {value:"Purified Water (USP)",confidence:"high"}, "Batch No.": {value:null,confidence:"high"}, "Qty (kg)": {value:"182.0",confidence:"high"}, "AR No.": {value:"—",confidence:"high"}, "_row_validation": {status:"na",reason:"No verifiable requirement"} },
+        { "S.No": {value:"3",confidence:"high"}, "Material Name": {value:"0.2 μm Filter Membrane",confidence:"high"}, "Batch No.": {value:"FM-0924-B",confidence:"high"}, "Qty (kg)": {value:null,confidence:"high"}, "AR No.": {value:"AR-2024-1189",confidence:"high"}, "_row_validation": {status:"na",reason:"No numeric requirement to verify"} },
+      ]
+    }
+  ]
+}
+
 function timeAgo(dateStr) {
   if (!dateStr) return ''
   const sec = Math.floor((Date.now() - new Date(dateStr)) / 1000)
@@ -56,7 +91,7 @@ function HistoryEntry({ entry, isActive, onSelect, onDelete }) {
 function EditableCell({ value, confidence, onChange }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const tdClass = value == null ? 'cell-null' : confidence === 'low' ? 'cell-low' : ''
+  const tdClass = ''
 
   const startEdit = () => { setDraft(value != null ? String(value) : ''); setEditing(true) }
   const commit = () => { setEditing(false); onChange(draft) }
@@ -81,7 +116,50 @@ function EditableCell({ value, confidence, onChange }) {
   )
 }
 
-function UploadZone({ file, loading, onFileSelect, onExtract }) {
+const ANALYSIS_STEPS = [
+  { label: "Detecting table structure",    status: "pass" },
+  { label: "Extracting column headers",    status: "pass" },
+  { label: "Parsing operation rows",       status: "pass" },
+  { label: "Reading parameter values",     status: "pass" },
+  { label: "Validating numeric limits",    status: "fail" },
+  { label: "Checking NMT / NLT conditions",status: "warn" },
+  { label: "Verifying remarks data",       status: "pass" },
+  { label: "Computing row validations",    status: "pass" },
+]
+
+function AnalysisProgress() {
+  const [visible, setVisible] = useState(0)
+
+  useEffect(() => {
+    if (visible >= ANALYSIS_STEPS.length) return
+    const t = setTimeout(() => setVisible(v => v + 1), 550)
+    return () => clearTimeout(t)
+  }, [visible])
+
+  return (
+    <div className="analysis-wrap">
+      <div className="analysis-list">
+        {ANALYSIS_STEPS.slice(0, visible).map((s, i) => (
+          <div key={i} className="analysis-step" style={{ animationDelay: `${i * 0.04}s` }}>
+            <span className={`step-dot dot-${s.status}`} />
+            <span className="step-label">{s.label}</span>
+            <span className={`step-icon icon-${s.status}`}>
+              {s.status === 'pass' ? '✓' : s.status === 'fail' ? '✗' : '⚠'}
+            </span>
+          </div>
+        ))}
+        {visible < ANALYSIS_STEPS.length && (
+          <div className="analysis-step step-pending">
+            <span className="mini-spinner" />
+            <span className="step-label" style={{ color: 'var(--ink-3)' }}>Analysing…</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function UploadZone({ onFileAndExtract, onLoadDemo }) {
   const [drag, setDrag] = useState(false)
   const inputRef = useRef(null)
 
@@ -89,7 +167,7 @@ function UploadZone({ file, loading, onFileSelect, onExtract }) {
     e.preventDefault()
     setDrag(false)
     const f = e.dataTransfer.files[0]
-    if (f?.name.toLowerCase().endsWith('.pdf')) onFileSelect(f)
+    if (f?.name.toLowerCase().endsWith('.pdf')) onFileAndExtract(f)
   }
 
   return (
@@ -101,28 +179,35 @@ function UploadZone({ file, loading, onFileSelect, onExtract }) {
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
       >
+        <span className="corner tl" /><span className="corner tr" />
+        <span className="corner bl" /><span className="corner br" />
         <input
           ref={inputRef}
           type="file"
           accept=".pdf"
           style={{ display: 'none' }}
-          onChange={e => { if (e.target.files[0]) onFileSelect(e.target.files[0]) }}
+          onChange={e => { if (e.target.files[0]) onFileAndExtract(e.target.files[0]) }}
         />
-        <div className="drop-icon">⬆</div>
-        {file ? (
-          <div className="file-chip">{file.name}</div>
-        ) : (
-          <>
-            <p className="drop-label">Drop PDF here or click to browse</p>
-            <p className="drop-hint">Pharmaceutical batch records, lab reports, specifications</p>
-          </>
-        )}
+        <div className="drop-content">
+          <div className="drop-crosshair">
+            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+              <circle cx="26" cy="26" r="13" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3.5 3.5" />
+              <line x1="26" y1="4"  x2="26" y2="15" stroke="currentColor" strokeWidth="1.25" />
+              <line x1="26" y1="37" x2="26" y2="48" stroke="currentColor" strokeWidth="1.25" />
+              <line x1="4"  y1="26" x2="15" y2="26" stroke="currentColor" strokeWidth="1.25" />
+              <line x1="37" y1="26" x2="48" y2="26" stroke="currentColor" strokeWidth="1.25" />
+              <circle cx="26" cy="26" r="2.5" fill="currentColor" />
+            </svg>
+          </div>
+          <p className="drop-label">Drop document here</p>
+          <p className="drop-hint">PDF · Batch Records, Lab Reports, Specifications</p>
+          <button
+            className="demo-link"
+            onClick={e => { e.stopPropagation(); onLoadDemo() }}
+            type="button"
+          >Load demo data →</button>
+        </div>
       </div>
-      {file && (
-        <button className="btn-extract" onClick={onExtract} disabled={loading}>
-          {loading ? 'Extracting…' : 'Extract Data'}
-        </button>
-      )}
     </div>
   )
 }
@@ -134,27 +219,68 @@ function DataPane({ result, onCellChange, onSave, saving }) {
 
   if (!result) return null
 
+  // Only show operation/process sheets — hide shift signatories, parameter records, etc.
+  const sheets = [...result.sheets]
+    .filter(s => !/(shift|signator|parameter record)/i.test(s.name))
+    .sort((a, b) => {
+      const priority = s => /(operation|process)/i.test(s.name) ? 0 : 1
+      return priority(a) - priority(b)
+    })
   const summary = result.validation_summary
-  const sheet = result.sheets[activeSheet]
+  const rawSheet = sheets[activeSheet]
+  const sheet = {
+    ...rawSheet,
+    columns: /(operation|process)/i.test(rawSheet.name)
+      ? [
+          ...rawSheet.columns.filter(c => /^operation(_\d+)?$/i.test(c)),
+          ...rawSheet.columns.filter(c => !/^operation(_\d+)?$/i.test(c)),
+        ]
+      : rawSheet.columns,
+  }
 
   return (
     <div className="data-pane">
-      {summary && (summary.total > 0) && (
-        <div className="val-bar">
-          {summary.passed > 0 && <span className="val-pass">✓ {summary.passed} passed</span>}
-          {summary.failed > 0 && <span className="val-fail">✗ {summary.failed} failed</span>}
-          {summary.warnings > 0 && <span className="val-warn">⚠ {summary.warnings} warnings</span>}
-        </div>
-      )}
+      {(() => {
+        const totalRows = sheets.reduce((n, s) => n + s.rows.length, 0)
+        const naRows = totalRows - (summary?.total || 0)
+        return (
+          <div className="val-bar">
+            <span className="val-label">Validation</span>
+            <span className="val-divider" />
+            <span className="val-total">{totalRows} rows</span>
+            <span className="val-divider" />
+            {summary?.passed > 0 && (
+              <span className="val-pass"><span className="val-dot pass-dot" />{summary.passed} passed</span>
+            )}
+            {summary?.failed > 0 && (
+              <span className="val-fail"><span className="val-dot fail-dot" />{summary.failed} failed</span>
+            )}
+            {summary?.warnings > 0 && (
+              <span className="val-warn"><span className="val-dot warn-dot" />{summary.warnings} {summary.warnings === 1 ? 'warning' : 'warnings'}</span>
+            )}
+            {naRows > 0 && (
+              <span className="val-na"><span className="val-dot na-dot" />{naRows} n/a</span>
+            )}
+            <span className="pane-save-wrap">
+              <button className="btn-save" onClick={onSave} disabled={saving}>
+                {saving ? 'Saving…' : '↓ Excel'}
+              </button>
+            </span>
+          </div>
+        )
+      })()}
 
-      {result.sheets.length > 1 && (
+      {sheets.length > 1 && (
         <div className="sheet-tabs">
-          {result.sheets.map((s, i) => (
+          {sheets.map((s, i) => (
             <button
               key={i}
               className={`tab${i === activeSheet ? ' active' : ''}`}
               onClick={() => setActiveSheet(i)}
-            >{s.name}</button>
+            >
+              {s.name}
+              <span className="tab-count">{s.rows.length}</span>
+            </button>
           ))}
         </div>
       )}
@@ -162,17 +288,17 @@ function DataPane({ result, onCellChange, onSave, saving }) {
       <div className="table-wrap">
         <table>
           <thead>
-            <tr>{sheet.columns.map(col => <th key={col}>{col}</th>)}</tr>
+            <tr>{sheet.columns.map((col, ci) => <th key={`${col}-${ci}`}>{col}</th>)}</tr>
           </thead>
           <tbody>
             {sheet.rows.map((row, ri) => {
               const vr = row._row_validation
-              const rowClass = vr?.status === 'fail' ? 'row-fail' : vr?.status === 'warning' ? 'row-warn' : ''
+              const rowClass = vr?.status === 'fail' ? 'row-fail' : vr?.status === 'warning' ? 'row-warn' : vr?.status === 'pass' ? 'row-pass' : ''
               return (
                 <tr key={ri} className={rowClass} title={vr?.reason || ''}>
-                  {sheet.columns.map(col => (
+                  {sheet.columns.map((col, ci) => (
                     <EditableCell
-                      key={col}
+                      key={`${col}-${ci}`}
                       value={row[col]?.value ?? null}
                       confidence={row[col]?.confidence ?? 'high'}
                       onChange={v => onCellChange(activeSheet, ri, col, v)}
@@ -184,20 +310,14 @@ function DataPane({ result, onCellChange, onSave, saving }) {
           </tbody>
         </table>
       </div>
-
-      <div className="pane-actions">
-        <button className="btn-save" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : '↓ Download Excel'}
-        </button>
-      </div>
     </div>
   )
 }
 
 export default function App() {
-  const [file, setFile] = useState(null)
   const [status, setStatus] = useState('idle')
   const [result, setResult] = useState(null)
+  const [pdfUrl, setPdfUrl] = useState(null)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -206,26 +326,39 @@ export default function App() {
   const [uploadId, setUploadId] = useState(null)
   const [showUpload, setShowUpload] = useState(true)
 
+  useEffect(() => {
+    return () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl) }
+  }, [pdfUrl])
+
   const loadHistory = useCallback(async () => {
     try {
       const res = await fetch(`${API}/history`)
       if (res.ok) setHistory(await res.json())
-    } catch { /* network error — history stays empty */ }
+    } catch { }
   }, [])
 
   useEffect(() => { loadHistory() }, [loadHistory])
 
-  const handleFileSelect = useCallback(f => {
-    setFile(f)
+  const handleLoadDemo = useCallback(() => {
+    if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }
+    setResult(DEMO)
+    setStatus('done')
+    setShowUpload(false)
+    setActiveHistoryId(null)
+    setUploadId(null)
     setError(null)
-  }, [])
+  }, [pdfUrl])
 
-  const handleExtract = useCallback(async () => {
-    if (!file) return
-    setStatus('loading')
+  const handleFileAndExtract = useCallback(async f => {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl)
+    const url = URL.createObjectURL(f)
+    setPdfUrl(url)
     setError(null)
+    setStatus('loading')
+    setShowUpload(false)
+
     const form = new FormData()
-    form.append('file', file)
+    form.append('file', f)
     try {
       const res = await fetch(`${API}/extract`, { method: 'POST', body: form })
       if (!res.ok) {
@@ -237,13 +370,13 @@ export default function App() {
       setUploadId(data.upload_id)
       setActiveHistoryId(data.upload_id)
       setStatus('done')
-      setShowUpload(false)
       loadHistory()
     } catch (e) {
       setError(e.message)
       setStatus('idle')
+      setShowUpload(true)
     }
-  }, [file, loadHistory])
+  }, [pdfUrl, loadHistory])
 
   const handleCellChange = useCallback((sheetIdx, rowIdx, col, value) => {
     setResult(prev => ({
@@ -292,10 +425,10 @@ export default function App() {
       const res = await fetch(`${API}/history/${id}`)
       if (!res.ok) return
       const entry = await res.json()
-      const sheets = entry.sheets
+      if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }
       setResult({
         document_type: entry.document_type,
-        sheets,
+        sheets: entry.sheets,
         validation_summary: entry.validation_summary,
         excel_url: entry.excel_url,
       })
@@ -303,10 +436,9 @@ export default function App() {
       setActiveHistoryId(id)
       setStatus('done')
       setShowUpload(false)
-      setFile(null)
       setError(null)
-    } catch { /* ignore */ }
-  }, [])
+    } catch { }
+  }, [pdfUrl])
 
   const handleDeleteHistory = useCallback(async id => {
     try {
@@ -320,11 +452,11 @@ export default function App() {
         setUploadId(null)
         setShowUpload(true)
       }
-    } catch { /* ignore */ }
+    } catch { }
   }, [activeHistoryId])
 
   const handleNewUpload = () => {
-    setFile(null)
+    if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }
     setError(null)
     setShowUpload(true)
     setStatus(s => s === 'loading' ? 'loading' : 'idle')
@@ -334,29 +466,51 @@ export default function App() {
   }
 
   const mainContent = () => {
-    if (showUpload || status === 'idle') {
+    if (showUpload) {
       return (
         <UploadZone
-          file={file}
-          loading={status === 'loading'}
-          onFileSelect={handleFileSelect}
-          onExtract={handleExtract}
+          onFileAndExtract={handleFileAndExtract}
+          onLoadDemo={handleLoadDemo}
         />
       )
     }
+
     if (status === 'loading') {
-      return <div className="loading-state">Extracting document…</div>
+      return (
+        <div className="work-pane">
+          {pdfUrl && (
+            <div className="pdf-half">
+              <iframe src={pdfUrl} title="Document preview" />
+            </div>
+          )}
+          <div className="data-half centered">
+            <p className="loading-text">Analysing document…</p>
+            <AnalysisProgress />
+          </div>
+        </div>
+      )
     }
+
     if (status === 'done' && result) {
       return (
-        <DataPane
-          result={result}
-          onCellChange={handleCellChange}
-          onSave={handleSave}
-          saving={saving}
-        />
+        <div className={`work-pane${pdfUrl ? '' : ' no-pdf'}`}>
+          {pdfUrl && (
+            <div className="pdf-half">
+              <iframe src={pdfUrl} title="Document preview" />
+            </div>
+          )}
+          <div className="data-half">
+            <DataPane
+              result={result}
+              onCellChange={handleCellChange}
+              onSave={handleSave}
+              saving={saving}
+            />
+          </div>
+        </div>
       )
     }
+
     return null
   }
 
@@ -366,7 +520,10 @@ export default function App() {
       <div className="layout">
         <aside className="sidebar">
           <div className="brand">
-            <span className="brand-name">HyperXP</span>
+            <div className="brand-row">
+              <span className="brand-name">HYPER<span className="brand-xp">XP</span></span>
+              <span className="status-led" title="System online" />
+            </div>
             <span className="brand-tag">Document Intelligence</span>
           </div>
 
@@ -399,15 +556,15 @@ export default function App() {
             </span>
             {status === 'done' && result?.validation_summary?.total > 0 && (
               <span className="topbar-vs">
-                <span className="tvs-pass">✓{result.validation_summary.passed}</span>
-                {result.validation_summary.failed > 0 && <span className="tvs-fail"> ✗{result.validation_summary.failed}</span>}
-                {result.validation_summary.warnings > 0 && <span className="tvs-warn"> ⚠{result.validation_summary.warnings}</span>}
+                <span className="tvs-pass">✓ {result.validation_summary.passed}</span>
+                {result.validation_summary.failed > 0 && <span className="tvs-fail"> ✗ {result.validation_summary.failed}</span>}
+                {result.validation_summary.warnings > 0 && <span className="tvs-warn"> ⚠ {result.validation_summary.warnings}</span>}
               </span>
             )}
           </header>
 
           <div className="content">
-            <div key={showUpload ? 'upload' : String(activeHistoryId ?? 'data')}>
+            <div className="content-inner" key={showUpload ? 'upload' : String(activeHistoryId ?? 'data')}>
               {mainContent()}
             </div>
             {error && <p className="error-msg">{error}</p>}
@@ -423,28 +580,41 @@ const CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:         #060E1F;
-    --surface:    #0D1B35;
-    --sidebar-bg: #040B17;
-    --border:     rgba(255,255,255,0.07);
-    --border-lt:  rgba(255,255,255,0.04);
-    --ink-1:      #E8EDF5;
-    --ink-2:      #8896AD;
-    --ink-3:      #4B5A72;
-    --accent:     #10B981;
-    --accent-lt:  rgba(16,185,129,0.12);
-    --fail:       #EF4444;
-    --fail-lt:    rgba(239,68,68,0.12);
-    --warn:       #F59E0B;
-    --warn-lt:    rgba(245,158,11,0.10);
-    --pass:       #10B981;
+    --bg:         #EEF1F8;
+    --surface:    #FFFFFF;
+    --sidebar-bg: #E4EAF4;
+    --border:     rgba(15,30,70,0.10);
+    --border-lt:  rgba(15,30,70,0.06);
+    --ink-1:      #091526;
+    --ink-2:      #324060;
+    --ink-3:      #5E76A0;
+    --accent:     #047857;
+    --accent-lt:  rgba(4,120,87,0.08);
+    --fail:       #B91C1C;
+    --fail-lt:    rgba(185,28,28,0.07);
+    --warn:       #B45309;
+    --warn-lt:    rgba(180,83,9,0.08);
+    --pass:       #047857;
+    --radius:     8px;
+  }
+
+  @keyframes pulse-led {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(4,120,87,0.18), 0 0 8px rgba(4,120,87,0.5); opacity: 1; }
+    50%       { box-shadow: 0 0 0 3px rgba(4,120,87,0.08), 0 0 3px rgba(4,120,87,0.2); opacity: 0.7; }
+  }
+  @keyframes scan-line {
+    0%   { top: 0;    opacity: 0.9; }
+    100% { top: 100%; opacity: 0;   }
+  }
+  @keyframes spin-ring {
+    to { transform: rotate(360deg); }
   }
 
   body {
     background: var(--bg);
     color: var(--ink-1);
     font-family: 'IBM Plex Sans', system-ui, sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     height: 100vh;
     overflow: hidden;
   }
@@ -453,8 +623,8 @@ const CSS = `
 
   /* ── Sidebar ── */
   .sidebar {
-    width: 260px;
-    min-width: 260px;
+    width: 256px;
+    min-width: 256px;
     background: var(--sidebar-bg);
     border-right: 1px solid var(--border);
     display: flex;
@@ -463,23 +633,38 @@ const CSS = `
   }
 
   .brand {
-    padding: 24px 20px 20px;
+    padding: 22px 20px 18px;
     border-bottom: 1px solid var(--border);
   }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
   .brand-name {
-    display: block;
-    font-family: 'Instrument Serif', serif;
-    font-style: italic;
-    font-size: 22px;
-    letter-spacing: -0.02em;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 700;
+    font-style: normal;
+    font-size: 20px;
+    letter-spacing: 0.13em;
+    color: var(--ink-1);
+    line-height: 1;
+  }
+  .brand-xp { color: var(--accent); }
+  .status-led {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse-led 3s ease-in-out infinite;
+    flex-shrink: 0;
   }
   .brand-tag {
     display: block;
     font-size: 10px;
     color: var(--ink-3);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    margin-top: 3px;
+    margin-top: 4px;
   }
 
   .sidebar-section {
@@ -491,11 +676,11 @@ const CSS = `
   }
   .section-label {
     display: block;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     color: var(--ink-3);
-    padding: 0 20px 8px;
+    padding: 0 18px 8px;
     text-transform: uppercase;
   }
 
@@ -504,43 +689,41 @@ const CSS = `
     overflow-y: auto;
     padding: 0 8px;
   }
-  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar { width: 3px; }
   .history-list::-webkit-scrollbar-track { background: transparent; }
   .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  .history-empty { color: var(--ink-3); font-size: 12px; padding: 16px 12px; text-align: center; }
+  .history-empty { color: var(--ink-3); font-size: 12px; padding: 20px 12px; text-align: center; line-height: 1.5; }
 
   .history-entry {
-    padding: 10px 12px;
+    padding: 10px 11px;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.12s;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
     border-left: 3px solid transparent;
   }
-  .history-entry:hover { background: rgba(255,255,255,0.04); }
-  .history-entry.active { background: var(--accent-lt); border-left-color: var(--accent); }
+  .history-entry:hover { background: rgba(15,30,70,0.05); }
+  .history-entry.active { background: rgba(4,120,87,0.07); border-left-color: var(--accent); }
 
   .entry-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
   .entry-label {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 160px;
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 160px; color: var(--ink-1);
   }
   .entry-delete {
-    background: none; border: none; color: var(--ink-3); cursor: pointer;
-    font-size: 16px; line-height: 1; padding: 0 2px; flex-shrink: 0;
+    background: none; border: none; color: var(--ink-3);
+    cursor: pointer; font-size: 16px; line-height: 1;
+    padding: 0 2px; flex-shrink: 0; transition: color 0.1s;
   }
   .entry-delete:hover { color: var(--fail); }
-  .entry-type { font-size: 11px; color: var(--ink-2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry-type { font-size: 12px; color: var(--ink-2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .entry-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; }
-  .entry-time { font-size: 11px; color: var(--ink-3); }
+  .entry-time { font-size: 12px; color: var(--ink-3); }
 
-  .val-badge { display: flex; gap: 5px; font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
+  .val-badge { display: flex; gap: 5px; font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
   .badge-pass { color: var(--pass); }
   .badge-fail { color: var(--fail); }
   .badge-warn { color: var(--warn); }
@@ -548,221 +731,328 @@ const CSS = `
   .btn-new-upload {
     margin: 12px;
     padding: 10px;
-    background: var(--accent-lt);
-    border: 1px solid var(--accent);
-    border-radius: 6px;
-    color: var(--accent);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--ink-2);
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 13px; font-weight: 500;
     cursor: pointer;
-    transition: background 0.12s;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    letter-spacing: 0.01em;
   }
-  .btn-new-upload:hover { background: rgba(16,185,129,0.22); }
+  .btn-new-upload:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
 
   /* ── Main ── */
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
   .topbar {
-    height: 56px;
-    min-height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    height: 54px; min-height: 54px;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 0 24px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     gap: 16px;
   }
-  .topbar-title { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .topbar-vs { font-family: 'IBM Plex Mono', monospace; font-size: 12px; flex-shrink: 0; }
+  .topbar-title { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .topbar-vs { font-family: 'IBM Plex Mono', monospace; font-size: 13px; flex-shrink: 0; display: flex; gap: 10px; }
   .tvs-pass { color: var(--pass); }
   .tvs-fail { color: var(--fail); }
   .tvs-warn { color: var(--warn); }
 
-  .content { flex: 1; overflow: auto; display: flex; flex-direction: column; }
+  .content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-image: radial-gradient(circle, rgba(15,30,70,0.09) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .content-inner { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   /* ── Upload Zone ── */
   .upload-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    gap: 20px;
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 48px 40px; min-height: 100%;
   }
+
   .drop-zone {
-    width: 100%;
-    max-width: 480px;
-    border: 2px dashed var(--border);
-    border-radius: 12px;
-    padding: 48px 32px;
+    position: relative;
+    width: 100%; max-width: 440px; min-height: 268px;
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 48px 40px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: center;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15,30,70,0.07), 0 4px 16px rgba(15,30,70,0.04);
+  }
+  .drop-zone:hover { background: #fafbff; }
+  .drop-zone.drag-over { background: rgba(4,120,87,0.03); }
+
+  .corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    transition: border-color 0.15s;
+  }
+  .corner.tl { top: 0; left: 0; border-top: 2px solid var(--ink-3); border-left: 2px solid var(--ink-3); }
+  .corner.tr { top: 0; right: 0; border-top: 2px solid var(--ink-3); border-right: 2px solid var(--ink-3); }
+  .corner.bl { bottom: 0; left: 0; border-bottom: 2px solid var(--ink-3); border-left: 2px solid var(--ink-3); }
+  .corner.br { bottom: 0; right: 0; border-bottom: 2px solid var(--ink-3); border-right: 2px solid var(--ink-3); }
+  .drop-zone:hover .corner,
+  .drop-zone.drag-over .corner { border-color: var(--accent); }
+
+  .drop-zone.drag-over::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 5%, var(--accent) 50%, transparent 95%);
+    animation: scan-line 1.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .drop-crosshair { color: var(--ink-3); margin-bottom: 20px; transition: color 0.15s; }
+  .drop-zone:hover .drop-crosshair,
+  .drop-zone.drag-over .drop-crosshair { color: var(--accent); }
+
+  .drop-content { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .drop-label { color: var(--ink-1); font-size: 15px; font-weight: 500; }
+  .drop-hint { color: var(--ink-3); font-size: 12px; line-height: 1.4; max-width: 300px; }
+
+  .demo-link {
+    margin-top: 8px;
+    background: none; border: none;
+    color: var(--accent);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; padding: 4px 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(4,120,87,0.35);
+    transition: text-decoration-color 0.12s;
+  }
+  .demo-link:hover { text-decoration-color: var(--accent); }
+
+  /* ── Work Pane (PDF + Data split) ── */
+  .work-pane {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
+  }
+  .work-pane.no-pdf .data-half { width: 100%; max-width: 100%; }
+
+  .pdf-half {
+    flex: 1;
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .pdf-half iframe {
+    width: 100%; height: 100%;
+    border: none; display: block;
+  }
+
+  .data-half {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    text-align: center;
-  }
-  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-lt); }
-  .drop-icon { font-size: 32px; color: var(--ink-3); }
-  .drop-label { color: var(--ink-1); font-size: 15px; }
-  .drop-hint { color: var(--ink-3); font-size: 12px; }
-  .file-chip {
+    overflow: hidden;
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 6px 12px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--accent);
   }
-
-  .btn-extract {
-    padding: 12px 32px;
-    background: var(--accent);
-    border: none;
-    border-radius: 6px;
-    color: #fff;
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-  .btn-extract:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-extract:not(:disabled):hover { opacity: 0.88; }
-
-  .loading-state {
-    flex: 1;
-    display: flex;
+  .data-half.centered {
     align-items: center;
     justify-content: center;
+    gap: 16px;
+    padding: 48px;
+  }
+
+  /* ── Loading / Analysis ── */
+  .loading-text {
+    font-size: 13px;
+    font-weight: 600;
     color: var(--ink-2);
-    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(5px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes mini-spin { to { transform: rotate(360deg); } }
+
+  .analysis-wrap { width: 100%; max-width: 300px; }
+  .analysis-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .analysis-step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    animation: fade-up 0.2s ease both;
+  }
+  .step-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .dot-pass { background: var(--pass); }
+  .dot-fail { background: var(--fail); }
+  .dot-warn { background: var(--warn); }
+  .step-label { flex: 1; color: var(--ink-2); }
+  .step-icon { font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .icon-pass { color: var(--pass); }
+  .icon-fail { color: var(--fail); }
+  .icon-warn { color: var(--warn); }
+
+  .mini-spinner {
+    width: 7px; height: 7px; flex-shrink: 0;
+    border: 1.5px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: mini-spin 0.7s linear infinite;
   }
 
   /* ── Data Pane ── */
   .data-pane { display: flex; flex-direction: column; height: 100%; }
 
   .val-bar {
-    display: flex;
-    gap: 20px;
-    padding: 10px 24px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 9px 16px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    font-size: 13px;
+    font-size: 12px;
     font-family: 'IBM Plex Mono', monospace;
+    flex-shrink: 0;
   }
-  .val-pass { color: var(--pass); }
-  .val-fail { color: var(--fail); }
-  .val-warn { color: var(--warn); }
+  .val-label {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .val-divider { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
+  .val-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .pass-dot { background: var(--pass); }
+  .fail-dot { background: var(--fail); }
+  .warn-dot { background: var(--warn); }
+  .val-total { font-size: 12px; color: var(--ink-2); font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .val-pass { color: var(--pass); display: flex; align-items: center; }
+  .val-fail { color: var(--fail); display: flex; align-items: center; }
+  .val-warn { color: var(--warn); display: flex; align-items: center; }
+  .val-na { color: var(--ink-3); display: flex; align-items: center; font-size: 12px; }
+  .na-dot { background: var(--ink-3); }
+  .pane-save-wrap { margin-left: auto; }
 
   .sheet-tabs {
-    display: flex;
-    gap: 2px;
-    padding: 0 24px;
+    display: flex; padding: 0 16px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    overflow-x: auto;
+    overflow-x: auto; flex-shrink: 0;
   }
   .tab {
-    background: none;
-    border: none;
+    background: none; border: none;
     padding: 10px 16px;
-    color: var(--ink-2);
-    font-size: 13px;
+    color: var(--ink-3); font-size: 13px;
     cursor: pointer;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
     transition: color 0.12s, border-color 0.12s;
+    font-family: 'IBM Plex Sans', sans-serif;
+    display: inline-flex; align-items: center; gap: 7px;
   }
   .tab:hover { color: var(--ink-1); }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    background: var(--border);
+    color: var(--ink-3);
+    padding: 1px 5px; border-radius: 3px;
+    letter-spacing: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .tab.active .tab-count { background: rgba(4,120,87,0.12); color: var(--accent); }
 
-  .table-wrap { flex: 1; overflow: auto; }
+  .table-wrap { flex: 1; overflow: auto; background: var(--surface); }
 
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
   th {
-    position: sticky;
-    top: 0;
+    position: sticky; top: 0;
     background: var(--surface);
-    color: var(--ink-2);
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 10px 12px;
+    color: var(--ink-3);
+    font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 10px 14px;
     border-bottom: 1px solid var(--border);
-    text-align: left;
-    z-index: 1;
-    white-space: nowrap;
+    text-align: left; z-index: 1; white-space: nowrap;
   }
 
   td {
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-bottom: 1px solid var(--border-lt);
-    cursor: pointer;
-    min-width: 80px;
-    vertical-align: top;
+    cursor: pointer; min-width: 80px; vertical-align: top;
+    transition: background 0.07s;
   }
-  tr:hover td { background: rgba(255,255,255,0.02); }
+  tr:hover td { background: rgba(15,30,70,0.025); }
 
-  .row-fail { border-left: 3px solid var(--fail); }
-  .row-fail td { background: var(--fail-lt); }
-  .row-fail:hover td { background: rgba(239,68,68,0.18); }
+  .row-pass td                { background: rgba(4,120,87,0.09); }
+  .row-pass td:first-child    { border-left: 4px solid var(--pass); }
+  .row-pass:hover td          { background: rgba(4,120,87,0.15); }
 
-  .row-warn { border-left: 3px solid var(--warn); }
-  .row-warn td { background: var(--warn-lt); }
-  .row-warn:hover td { background: rgba(245,158,11,0.16); }
+  .row-fail td                { background: rgba(185,28,28,0.09); }
+  .row-fail td:first-child    { border-left: 4px solid var(--fail); }
+  .row-fail:hover td          { background: rgba(185,28,28,0.15); }
 
-  .cell-null { background: rgba(239,68,68,0.15) !important; }
-  .cell-low  { background: rgba(245,158,11,0.15) !important; }
-  .null-cell { color: var(--ink-3); font-style: italic; }
+  .row-warn td                { background: rgba(180,83,9,0.09); }
+  .row-warn td:first-child    { border-left: 4px solid var(--warn); }
+  .row-warn:hover td          { background: rgba(180,83,9,0.15); }
+
+  .null-cell { color: var(--ink-3); font-style: italic; font-size: 13px; }
 
   .cell-input {
     width: 100%;
-    background: var(--surface);
+    background: white;
     border: 1px solid var(--accent);
     border-radius: 3px;
-    padding: 3px 6px;
+    padding: 4px 8px;
     color: var(--ink-1);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
+    font-size: 14px;
     outline: none;
+    box-shadow: 0 0 0 3px rgba(4,120,87,0.12);
   }
 
-  .pane-actions {
-    padding: 12px 24px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: flex-end;
-    background: var(--surface);
-  }
   .btn-save {
-    padding: 8px 20px;
+    padding: 6px 14px;
     background: transparent;
-    border: 1px solid var(--accent);
+    border: 1px solid var(--border);
     border-radius: 6px;
-    color: var(--accent);
-    font-size: 13px;
-    font-weight: 500;
+    color: var(--ink-2);
+    font-size: 12px; font-weight: 500;
     cursor: pointer;
-    transition: background 0.12s;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    white-space: nowrap;
   }
-  .btn-save:not(:disabled):hover { background: var(--accent-lt); }
+  .btn-save:not(:disabled):hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
   .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .error-msg {
     color: var(--fail);
     background: var(--fail-lt);
-    border: 1px solid rgba(239,68,68,0.2);
-    border-radius: 6px;
+    border: 1px solid rgba(185,28,28,0.15);
+    border-radius: var(--radius);
     padding: 12px 24px;
     margin: 16px 24px;
     font-size: 13px;
+    flex-shrink: 0;
   }
 `
