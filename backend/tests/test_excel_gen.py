@@ -123,3 +123,58 @@ def test_sheet_name_truncated_to_31_chars():
     long_name_sheets = [{"name": "A" * 40, "columns": [], "rows": []}]
     wb = load_workbook(BytesIO(generate_workbook(long_name_sheets)))
     assert wb.sheetnames[0] == "A" * 31
+
+
+_SHEETS_WITH_VALIDATION = [
+    {
+        "name": "Operations",
+        "columns": ["Op", "Remarks"],
+        "rows": [
+            {
+                "Op":      {"value": "Heat to 60±2°C", "confidence": "high"},
+                "Remarks": {"value": "Heated to 65°C", "confidence": "high"},
+                "_row_validation": {"status": "fail", "reason": "65°C exceeds 62°C upper limit"},
+            },
+            {
+                "Op":      {"value": "Mix 15 min", "confidence": "high"},
+                "Remarks": {"value": "Mixed 14 min", "confidence": "high"},
+                "_row_validation": {"status": "warning", "reason": "Duration within 5% of limit"},
+            },
+            {
+                "Op":      {"value": "Load equipment", "confidence": "high"},
+                "Remarks": {"value": "Done",           "confidence": "high"},
+                "_row_validation": {"status": "pass",  "reason": "Operation completed"},
+            },
+        ],
+    }
+]
+
+
+def test_fail_row_has_red_fill():
+    wb = load_workbook(BytesIO(generate_workbook(_SHEETS_WITH_VALIDATION)))
+    ws = wb["Operations"]
+    fill = ws.cell(row=2, column=1).fill  # row 2 = first data row (fail)
+    assert fill.fgColor.rgb == "00FFDEDE"
+
+
+def test_warn_row_has_amber_fill():
+    wb = load_workbook(BytesIO(generate_workbook(_SHEETS_WITH_VALIDATION)))
+    ws = wb["Operations"]
+    fill = ws.cell(row=3, column=1).fill  # row 3 = second data row (warning)
+    assert fill.fgColor.rgb == "00FFF3CD"
+
+
+def test_pass_row_has_no_row_fill():
+    wb = load_workbook(BytesIO(generate_workbook(_SHEETS_WITH_VALIDATION)))
+    ws = wb["Operations"]
+    fill = ws.cell(row=4, column=1).fill  # row 4 = third data row (pass)
+    assert fill.fgColor.rgb not in ("00FFDEDE", "00FFF3CD")
+
+
+def test_row_validation_not_written_as_column():
+    wb = load_workbook(BytesIO(generate_workbook(_SHEETS_WITH_VALIDATION)))
+    ws = wb["Operations"]
+    # Sheet has 2 columns (Op, Remarks) — _row_validation must not appear
+    assert ws.max_column == 2
+    headers = [ws.cell(row=1, column=i).value for i in range(1, 3)]
+    assert "_row_validation" not in headers
