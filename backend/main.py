@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from database import Upload, get_db, init_db
-from excel_gen import generate_report, generate_workbook
+from excel_gen import generate_bulk_report, generate_report, generate_workbook
 from extractor import extract_generic
 from pdf_converter import page_count, pdf_to_images
 
@@ -135,6 +135,36 @@ async def extract(file: UploadFile = File(...), db: Session = Depends(get_db)):
         "sheets": sheets,
         "validation_summary": validation_summary,
     }
+
+
+@app.post("/report/bulk")
+async def report_bulk(body: dict = Body(...), db: Session = Depends(get_db)):
+    upload_ids = body.get("upload_ids", [])
+    if not upload_ids:
+        raise HTTPException(status_code=400, detail="upload_ids must be non-empty")
+    records = []
+    for uid in upload_ids:
+        row = db.query(Upload).filter(Upload.id == uid).first()
+        if not row:
+            continue
+        records.append({
+            "document_type": row.document_type,
+            "batch_no": row.batch_no,
+            "filename": row.filename,
+            "sheets": json.loads(row.sheets_json),
+            "validation_summary": json.loads(row.validation_summary) if row.validation_summary else {},
+        })
+    if not records:
+        raise HTTPException(status_code=404, detail="No matching uploads found")
+    try:
+        xlsx_bytes = generate_bulk_report(records)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Bulk report generation failed: {exc}") from exc
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="qc-bulk-report.xlsx"'},
+    )
 
 
 @app.post("/report")

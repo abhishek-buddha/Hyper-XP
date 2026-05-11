@@ -57,26 +57,59 @@ function ValidationBadge({ summary }) {
   )
 }
 
-function HistoryEntry({ entry, isActive, onSelect, onDelete }) {
+function HistoryEntry({ entry, isActive, onSelect, onDelete, onDownload, selected, onToggle }) {
   const [hovered, setHovered] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const label = entry.batch_no || entry.filename
   const summary = entry.validation_summary
 
+  const handleDownload = async e => {
+    e.stopPropagation()
+    if (downloading) return
+    setDownloading(true)
+    await onDownload(entry.id, entry.document_type)
+    setDownloading(false)
+  }
+
   return (
     <div
-      className={`history-entry${isActive ? ' active' : ''}`}
+      className={`history-entry${isActive ? ' active' : ''}${selected ? ' selected' : ''}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onSelect(entry.id)}
     >
       <div className="entry-header">
+        <button
+          className={`entry-checkbox${selected ? ' entry-checkbox--on' : ''}`}
+          onClick={e => { e.stopPropagation(); onToggle(entry.id) }}
+          title={selected ? 'Deselect' : 'Select for bulk download'}
+        >
+          {selected
+            ? <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5l2.5 2.5 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            : null
+          }
+        </button>
         <span className="entry-label">{label}</span>
         {hovered && (
-          <button
-            className="entry-delete"
-            onClick={e => { e.stopPropagation(); onDelete(entry.id) }}
-            title="Delete"
-          >×</button>
+          <span className="entry-actions">
+            <button
+              className={`entry-dl${downloading ? ' entry-dl--busy' : ''}`}
+              onClick={handleDownload}
+              title="Download QC Report"
+            >
+              {downloading
+                ? <span className="entry-dl-spinner" />
+                : <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                    <path d="M5.5 1v6M2.5 5l3 3 3-3M1.5 10h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+              }
+            </button>
+            <button
+              className="entry-delete"
+              onClick={e => { e.stopPropagation(); onDelete(entry.id) }}
+              title="Delete"
+            >×</button>
+          </span>
         )}
       </div>
       <div className="entry-type">{entry.document_type}</div>
@@ -326,6 +359,8 @@ export default function App() {
   const [activeHistoryId, setActiveHistoryId] = useState(null)
   const [uploadId, setUploadId] = useState(null)
   const [showUpload, setShowUpload] = useState(true)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkDownloading, setBulkDownloading] = useState(false)
 
   useEffect(() => {
     return () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl) }
@@ -465,6 +500,65 @@ export default function App() {
     } catch { }
   }, [pdfUrl])
 
+  const handleToggleSelect = useCallback(id => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+
+  const handleBulkDownload = useCallback(async () => {
+    if (selectedIds.size === 0 || bulkDownloading) return
+    setBulkDownloading(true)
+    try {
+      const res = await fetch(`${API}/report/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upload_ids: [...selectedIds] }),
+      })
+      if (!res.ok) throw new Error('Bulk report failed')
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'qc-bulk-report.xlsx'
+      a.click()
+      URL.revokeObjectURL(a.href)
+      setSelectedIds(new Set())
+    } catch (e) {
+      console.error('Bulk download error:', e)
+    } finally {
+      setBulkDownloading(false)
+    }
+  }, [selectedIds, bulkDownloading])
+
+  const handleHistoryDownload = useCallback(async (id, docType) => {
+    try {
+      const res = await fetch(`${API}/history/${id}`)
+      if (!res.ok) return
+      const entry = await res.json()
+      const reportRes = await fetch(`${API}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_type: entry.document_type,
+          sheets: entry.sheets,
+          validation_summary: entry.validation_summary,
+        }),
+      })
+      if (!reportRes.ok) return
+      const blob = await reportRes.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      const slug = (docType || 'qc-report').replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 32)
+      a.download = `${slug}-report.xlsx`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch (e) {
+      console.error('History report download error:', e)
+    }
+  }, [])
+
   const handleDeleteHistory = useCallback(async id => {
     try {
       const res = await fetch(`${API}/history/${id}`, { method: 'DELETE' })
@@ -564,14 +658,29 @@ export default function App() {
                     key={entry.id}
                     entry={entry}
                     isActive={entry.id === activeHistoryId}
+                    selected={selectedIds.has(entry.id)}
                     onSelect={handleSelectHistory}
                     onDelete={handleDeleteHistory}
+                    onDownload={handleHistoryDownload}
+                    onToggle={handleToggleSelect}
                   />
                 ))
               )}
             </div>
           </div>
 
+          {selectedIds.size > 0 && (
+            <button
+              className={`btn-bulk-dl${bulkDownloading ? ' btn-bulk-dl--busy' : ''}`}
+              onClick={handleBulkDownload}
+              disabled={bulkDownloading}
+            >
+              {bulkDownloading
+                ? <><span className="bulk-spinner" /> Generating…</>
+                : <>↓ Download {selectedIds.size} selected</>
+              }
+            </button>
+          )}
           <button className="btn-new-upload" onClick={handleNewUpload}>+ New Upload</button>
         </aside>
 
@@ -732,13 +841,55 @@ const CSS = `
   .history-entry:hover { background: rgba(15,30,70,0.05); }
   .history-entry.active { background: rgba(4,120,87,0.07); border-left-color: var(--accent); }
 
-  .entry-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+  .entry-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
+  .entry-checkbox {
+    width: 14px; height: 14px; min-width: 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.12s, background 0.12s;
+    padding: 0; flex-shrink: 0;
+  }
+  .history-entry:hover .entry-checkbox { border-color: var(--accent); }
+  .entry-checkbox--on {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .history-entry.selected { background: rgba(4,120,87,0.05); border-left-color: var(--accent); }
   .entry-label {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 13px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 160px; color: var(--ink-1);
   }
+  .entry-actions { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
+
+  .entry-dl {
+    background: none; border: none;
+    color: var(--accent);
+    cursor: pointer; padding: 2px 3px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.1s, background 0.1s;
+  }
+  .entry-dl:hover { color: #025c42; background: rgba(4,120,87,0.1); }
+  .entry-dl--busy { opacity: 0.5; cursor: wait; }
+
+  @keyframes entry-spin { to { transform: rotate(360deg); } }
+  .entry-dl-spinner {
+    width: 9px; height: 9px;
+    border: 1.5px solid rgba(4,120,87,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: entry-spin 0.7s linear infinite;
+    display: block;
+  }
+
   .entry-delete {
     background: none; border: none; color: var(--ink-3);
     cursor: pointer; font-size: 16px; line-height: 1;
@@ -753,6 +904,33 @@ const CSS = `
   .badge-pass { color: var(--pass); }
   .badge-fail { color: var(--fail); }
   .badge-warn { color: var(--warn); }
+
+  @keyframes bulk-spin { to { transform: rotate(360deg); } }
+  .bulk-spinner {
+    display: inline-block; width: 10px; height: 10px;
+    border: 1.5px solid rgba(4,120,87,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: bulk-spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 5px;
+  }
+
+  .btn-bulk-dl {
+    margin: 0 12px 6px;
+    padding: 9px 10px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    color: white;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: opacity 0.12s, background 0.12s;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .btn-bulk-dl:hover:not(:disabled) { background: #036644; }
+  .btn-bulk-dl--busy, .btn-bulk-dl:disabled { opacity: 0.65; cursor: wait; }
 
   .btn-new-upload {
     margin: 12px;

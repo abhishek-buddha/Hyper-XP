@@ -75,17 +75,10 @@ def generate_workbook(sheets: List[dict]) -> bytes:
     return buf.getvalue()
 
 
-def generate_report(sheets: List[dict], document_type: str, validation_summary: dict) -> bytes:
-    """Generate a one-page QC Summary Report Excel."""
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "QC Report"
-    ws.column_dimensions["A"].width = 26
-    ws.column_dimensions["B"].width = 16
-    ws.column_dimensions["C"].width = 16
-    ws.column_dimensions["D"].width = 16
-    ws.column_dimensions["E"].width = 16
-    ws.column_dimensions["F"].width = 16
+def _write_summary_sheet(ws, document_type: str, sheets: list, validation_summary: dict) -> None:
+    """Write a QC summary onto an existing worksheet."""
+    for col, width in zip("ABCDEF", [26, 16, 16, 16, 16, 16]):
+        ws.column_dimensions[col].width = width
 
     def _hdr(row, col, value, fill=None):
         c = ws.cell(row=row, column=col, value=value)
@@ -100,7 +93,6 @@ def generate_report(sheets: List[dict], document_type: str, validation_summary: 
             c.fill = fill
         return c
 
-    # ── Title
     ws.merge_cells("A1:F1")
     title = ws["A1"]
     title.value = "HYPERXP — QC VALIDATION REPORT"
@@ -116,7 +108,6 @@ def generate_report(sheets: List[dict], document_type: str, validation_summary: 
     ws["A4"].font = _BOLD
     ws["B4"] = datetime.now().strftime("%d/%m/%Y  %H:%M")
 
-    # ── Overall summary
     _hdr(6, 1, "OVERALL SUMMARY")
 
     s = validation_summary or {}
@@ -124,21 +115,19 @@ def generate_report(sheets: List[dict], document_type: str, validation_summary: 
     total_rows = sum(len(sh.get("rows", [])) for sh in ops_sheets)
     na_rows = total_rows - (s.get("total") or 0)
 
-    summary_rows = [
+    for i, (label, val, fill) in enumerate([
         ("Total rows reviewed", total_rows,          None),
         ("Passed",              s.get("passed",   0), _GREEN_FILL),
         ("Failed",              s.get("failed",   0), _RED_FILL),
         ("Warnings",            s.get("warnings", 0), _AMBER_FILL),
         ("N/A (admin steps)",   na_rows,               _GRAY_FILL),
-    ]
-    for i, (label, val, fill) in enumerate(summary_rows, start=7):
+    ], start=7):
         ws.cell(row=i, column=1, value=label).font = Font(bold=(i == 7))
         c = ws.cell(row=i, column=2, value=val)
         if fill:
             ws.cell(row=i, column=1).fill = fill
             c.fill = fill
 
-    # ── Sheet breakdown
     br = 14
     _hdr(br, 1, "SHEET BREAKDOWN")
     br += 1
@@ -159,6 +148,78 @@ def generate_report(sheets: List[dict], document_type: str, validation_summary: 
         _val(br, 5, counts["na"])
         _val(br, 6, total)
         br += 1
+
+
+def generate_report(sheets: List[dict], document_type: str, validation_summary: dict) -> bytes:
+    """Generate a single QC Summary Report Excel."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "QC Report"
+    _write_summary_sheet(ws, document_type, sheets, validation_summary)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def generate_bulk_report(records: List[dict]) -> bytes:
+    """Combine multiple QC reports into one workbook.
+
+    records: [{document_type, sheets, validation_summary, batch_no, filename}]
+    Sheet 1  — Master Summary (one row per record)
+    Sheets 2+ — individual QC summary per record
+    """
+    wb = Workbook()
+
+    # ── Master Summary sheet ───────────────────────────────────────────────
+    master = wb.active
+    master.title = "Master Summary"
+    for col, width in zip("ABCDEFG", [30, 14, 10, 10, 12, 6, 20]):
+        master.column_dimensions[col].width = width
+
+    master.merge_cells("A1:G1")
+    t = master["A1"]
+    t.value = "HYPERXP — BULK QC REPORT"
+    t.font = Font(bold=True, size=14)
+    t.alignment = Alignment(horizontal="center")
+
+    master["A3"] = "Generated"
+    master["A3"].font = _BOLD
+    master["B3"] = datetime.now().strftime("%d/%m/%Y  %H:%M")
+
+    hdr_row = 5
+    for col, label in enumerate(["Document", "Total", "Passed", "Failed", "Warnings", "N/A", "Batch / File"], 1):
+        c = master.cell(row=hdr_row, column=col, value=label)
+        c.font = Font(bold=True)
+
+    for r, rec in enumerate(records, start=hdr_row + 1):
+        s = rec.get("validation_summary") or {}
+        ops = [sh for sh in rec.get("sheets", []) if not re.search(r"shift|signator|parameter record", sh.get("name", ""), re.I)]
+        total = sum(len(sh.get("rows", [])) for sh in ops)
+        na = total - (s.get("total") or 0)
+        label = rec.get("batch_no") or rec.get("filename") or "—"
+
+        master.cell(row=r, column=1, value=rec.get("document_type", ""))
+        master.cell(row=r, column=2, value=total)
+        c_pass = master.cell(row=r, column=3, value=s.get("passed", 0))
+        c_fail = master.cell(row=r, column=4, value=s.get("failed", 0))
+        c_warn = master.cell(row=r, column=5, value=s.get("warnings", 0))
+        master.cell(row=r, column=6, value=na)
+        master.cell(row=r, column=7, value=label)
+
+        if s.get("passed", 0):  c_pass.fill = _GREEN_FILL
+        if s.get("failed", 0):  c_fail.fill = _RED_FILL
+        if s.get("warnings", 0): c_warn.fill = _AMBER_FILL
+
+    # ── Individual report sheets ───────────────────────────────────────────
+    seen: dict = {}
+    for rec in records:
+        raw = (rec.get("batch_no") or rec.get("document_type") or "Report")[:28]
+        base = re.sub(r"[\\/*?:\[\]]", "_", raw)
+        count = seen.get(base, 0) + 1
+        seen[base] = count
+        title = base if count == 1 else f"{base[:25]} ({count})"
+        ws = wb.create_sheet(title=title)
+        _write_summary_sheet(ws, rec.get("document_type", ""), rec.get("sheets", []), rec.get("validation_summary") or {})
 
     buf = BytesIO()
     wb.save(buf)
