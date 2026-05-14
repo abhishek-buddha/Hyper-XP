@@ -145,7 +145,7 @@ def _build_content(images: List[bytes], page_offset: int = 0, total_pages: Optio
 def _call_api_single(images: List[bytes], client: OpenAI, page_offset: int = 0, total_pages: Optional[int] = None, column_names: Optional[List[str]] = None) -> dict:
     content = _build_content(images, page_offset=page_offset, total_pages=total_pages, column_names=column_names)
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5.5",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": content},

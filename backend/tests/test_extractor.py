@@ -132,11 +132,11 @@ def test_raises_on_empty_images():
         extract_generic([], client=_mock_client(json.dumps(_MOCK_RESULT)))
 
 
-def test_uses_gpt4o_model():
+def test_uses_gpt55_model():
     client = _mock_client(json.dumps(_MOCK_RESULT))
     extract_generic([b"fake_png"], client=client)
     call_kwargs = client.chat.completions.create.call_args
-    assert call_kwargs.kwargs["model"] == "gpt-4o"
+    assert call_kwargs.kwargs["model"] == "gpt-5.5"
 
 
 def test_row_validation_present():
