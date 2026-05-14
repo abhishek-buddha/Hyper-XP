@@ -44,7 +44,15 @@ SIGNATURE COLUMNS — any header containing "Sign", "Performed By", "Checked By"
 - Blank / dash / unsigned → "No".
 - NEVER copy raw initials or names. "mu 06/10/2025" → "Yes · 06/10/2025". "—" → "No".
 
-VALIDATION — compare Remarks against Operation:
+VALIDATION — primary rule first, then secondary:
+
+PRIMARY RULE — "Performed by Sign & Date" column:
+  • If the value is "Yes" or "Yes · DD/MM/YYYY" (signed, with or without date) → "pass".
+    Reason: "Performed by sign present".
+  • If the value is "No" or blank → apply secondary rules below.
+    A missing signature alone is NEVER "fail" — always "warning".
+
+SECONDARY RULES (apply only when "Performed by Sign & Date" is unsigned/blank):
 
 "pass"  — Remarks confirm the requirement was met:
   • Recorded value is within the stated range (temp "28.1°C" for "25–35°C" → pass)
@@ -66,7 +74,6 @@ VALIDATION — compare Remarks against Operation:
   • Purely administrative (record batch no., affix label)
   • When unsure → check Remarks for evidence → lean toward "pass" or "warning", NOT "na"
 
-Missing signature alone is NEVER "fail" — always "warning".
 Reason string: max 12 words, factual, specific.
 
 Return ONLY valid JSON matching the schema. No markdown fences, no explanations."""
@@ -150,8 +157,7 @@ def _call_api_single(images: List[bytes], client: OpenAI, page_offset: int = 0, 
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": content},
         ],
-        max_tokens=16384,
-        temperature=0,
+        max_completion_tokens=16384,
     )
     choice = response.choices[0]
     if choice.finish_reason == "length":
