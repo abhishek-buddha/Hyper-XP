@@ -44,36 +44,41 @@ SIGNATURE COLUMNS — any header containing "Sign", "Performed By", "Checked By"
 - Blank / dash / unsigned → "No".
 - NEVER copy raw initials or names. "mu 06/10/2025" → "Yes · 06/10/2025". "—" → "No".
 
-VALIDATION — primary rule first, then secondary:
+VALIDATION — evaluate BOTH signature AND remarks/operation together:
 
-PRIMARY RULE — "Performed by Sign & Date" column:
-  • If the value is "Yes" or "Yes · DD/MM/YYYY" (signed, with or without date) → "pass".
-    Reason: "Performed by sign present".
-  • If the value is "No" or blank → apply secondary rules below.
-    A missing signature alone is NEVER "fail" — always "warning".
+Check two things for every row:
+  A) SIGNATURE — "Performed by Sign & Date" column:
+     • Signed = "Yes" or "Yes · DD/MM/YYYY" → signature ✓
+     • "No" or blank → signature ✗
 
-SECONDARY RULES (apply only when "Performed by Sign & Date" is unsigned/blank):
+  B) REMARKS vs OPERATION — does the Remarks confirm what the Operation requires?
+     • Value within stated range / meets NMT or NLT → remarks ✓
+     • Narrative step confirmed done ("Cleaned", "Charged", "Completed", weight/volume recorded) → remarks ✓
+     • Checkbox shows correct option → remarks ✓
+     • Value exceeds NMT or falls below NLT → remarks ✗
+     • Checkbox shows wrong option → remarks ✗
+     • Remarks blank when Operation requires a recorded result → remarks ✗
 
-"pass"  — Remarks confirm the requirement was met:
-  • Recorded value is within the stated range (temp "28.1°C" for "25–35°C" → pass)
-  • Measurement meets NMT/NLT ("Result: 465, NMT 500" → pass since 465 < 500)
-  • Narrative step is confirmed done ("Cleaned", "Charged", "Completed", volume/weight recorded)
-  • Checkbox shows the correct option
+COMBINED DECISION:
 
-"fail"  — Remarks show the requirement was NOT met:
-  • Value exceeds NMT or falls below NLT
-  • Checkbox shows the wrong option (e.g. "Not cleaned" when cleaning was required)
-  • Conditional retry gate triggered ("if not compliant repeat from Op.X") but not followed
+"pass"    — signature ✓  AND  remarks ✓
+           Reason: factual summary of what was confirmed.
 
-"warning" — Partially met or uncertain:
-  • Value within 5% of a stated limit
-  • Remarks blank when Operation requires a recorded result or measurement
-  • Required signature missing (reason: "Signature missing")
+"warning" — signature ✓  BUT  remarks ✗ or blank   (signed but result unclear)
+           — signature ✗  BUT  remarks ✓             (result ok but unsigned)
+           — value within 5% of a stated limit
+           Reason: state which condition failed ("Remarks missing", "Signature missing", etc.)
 
-"na"  — ONLY for steps with no verifiable physical requirement AND no action to confirm:
-  • Purely administrative (record batch no., affix label)
-  • When unsure → check Remarks for evidence → lean toward "pass" or "warning", NOT "na"
+"fail"    — signature ✗  AND  remarks ✗              (unsigned AND requirement not met)
+           — remarks explicitly show requirement NOT met regardless of signature
+             (value exceeds NMT/NLT, wrong checkbox, retry gate not followed)
+           Reason: specific failure.
 
+"na"      — ONLY for purely administrative steps with no verifiable physical requirement
+            AND no action to confirm (e.g. record batch no., affix label).
+            When unsure → lean toward "pass" or "warning", NOT "na".
+
+Missing signature alone is NEVER "fail" — always "warning".
 Reason string: max 12 words, factual, specific.
 
 Return ONLY valid JSON matching the schema. No markdown fences, no explanations."""
