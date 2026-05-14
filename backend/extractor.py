@@ -133,7 +133,11 @@ def _build_content(images: List[bytes], page_offset: int = 0, total_pages: Optio
         })
     content.append({
         "type": "text",
-        "text": "Collect EVERY operation row from ALL pages above into one 'Process Operations' sheet. Do not stop early.",
+        "text": (
+            "Collect EVERY operation row from ALL pages above into one 'Process Operations' sheet. "
+            "Do NOT stop before reaching the very last row on the final page — there are rows on EVERY page including the last one. "
+            "If the last page shows Op. No. 28 and 29, include them. Never truncate the output mid-table."
+        ),
     })
     return content
 
@@ -198,10 +202,42 @@ def _call_api(images: List[bytes], client: OpenAI) -> dict:
         else:
             merged_sheets[name] = sheet2
 
+    # Deduplicate rows by Op. No. — the page boundary between Phase 1 and Phase 2
+    # causes the last row of Phase 1 to also appear as the first row of Phase 2.
+    # Strategy: keep the LAST occurrence so Phase 2 data (with explicit column names
+    # and fuller cell values) wins over the Phase 1 duplicate.
+    for sheet in merged_sheets.values():
+        seen_op: dict = {}  # op_no_value -> index of last occurrence
+        for i, row in enumerate(sheet["rows"]):
+            op_key = _op_no(row)
+            if op_key is not None:
+                seen_op[op_key] = i
+        # Rebuild rows: for duplicated op numbers keep only the last occurrence;
+        # rows with no op number (null) are always kept.
+        deduped = []
+        op_counts: dict = {}
+        for i, row in enumerate(sheet["rows"]):
+            op_key = _op_no(row)
+            if op_key is None:
+                deduped.append(row)
+            elif seen_op[op_key] == i:
+                deduped.append(row)
+        sheet["rows"] = deduped
+
     return {
         "document_type": result1.get("document_type", ""),
         "sheets": list(merged_sheets.values()),
     }
+
+
+def _op_no(row: dict) -> Optional[str]:
+    """Return the normalised Op. No. value from a row dict, or None if absent/blank."""
+    for key in row:
+        if key.lower().startswith("op"):
+            val = row[key].get("value") if isinstance(row[key], dict) else None
+            if val is not None:
+                return str(val).strip()
+    return None
 
 
 def _consolidate_sheets(result: dict) -> dict:
